@@ -1,0 +1,55 @@
+name: Generator
+
+on:
+  issues:
+  watch:
+    types: [started]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Use Node 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
+      - name: Set up Python #安装python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install requirements #安装requests
+        run: |
+          pip install -r requirements.txt
+
+      - name: Check if 'output' branch exists and pull it
+        run: |
+          # 检查 'output' 分支是否存在
+          git fetch origin output:output || echo "'output' branch does not exist, skipping pull."
+          # 如果分支存在，则切换到该分支
+          git checkout output || echo "'output' branch checkout skipped."
+
+      - name: LightHouse And Update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm install -g lighthouse
+          sudo apt-get install xvfb
+          Xvfb :7 -screen 0 1336x768x24 2>/dev/null &
+          export DISPLAY=:7
+          python generator/lighthouse.py
+          python generator/main.py
+
+      - name: Commit & Push
+        uses: action-x/commit@v2.9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          push-branch: "output"
+          force-push: "true"
+          commit-message: "Generate Json"
+          name: github-actions[bot]
+          email: github-actions[bot]@noreply.github.com
